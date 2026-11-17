@@ -1,0 +1,34 @@
+{
+  "name": "browser-remote-mcp",
+  "version": "1.0.0",
+  "description": "Browser Remote Access MCP Server with HTTPS",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "postinstall": "playwright install chromium"
+  },
+  "keywords": [
+    "mcp",
+    "browser",
+    "remote",
+    "playwright",
+    "https"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "playwright": "^1.49.1",
+    "selfsigned": "^2.4.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
