@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { BrowserManager } from './browser-manager.js';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 
 /**
  * Create and configure the MCP server with all browser tools.
@@ -17,11 +18,7 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     'browser_navigate',
     'Navigate the browser to a specified URL',
     {
-      url: {
-        type: 'string',
-        format: 'uri',
-        description: 'The URL to navigate to',
-      },
+      url: z.string().url().describe('The URL to navigate to'),
     },
     async (args) => {
       const result = await browserManager.navigate(args.url);
@@ -41,10 +38,7 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     'browser_screenshot',
     'Take a screenshot of the current page and return it as base64 PNG',
     {
-      fullPage: {
-        type: 'boolean',
-        description: 'Whether to capture the full page or just the viewport',
-      },
+      fullPage: z.boolean().optional().describe('Whether to capture the full page or just the viewport'),
     },
     async (args) => {
       const base64 = await browserManager.screenshot(args.fullPage ?? false);
@@ -65,10 +59,7 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     'browser_click',
     'Click an element on the page by CSS selector',
     {
-      selector: {
-        type: 'string',
-        description: 'CSS selector of the element to click',
-      },
+      selector: z.string().describe('CSS selector of the element to click'),
     },
     async (args) => {
       await browserManager.click(args.selector);
@@ -88,14 +79,8 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     'browser_type',
     'Type text into an input element identified by CSS selector',
     {
-      selector: {
-        type: 'string',
-        description: 'CSS selector of the input element',
-      },
-      text: {
-        type: 'string',
-        description: 'Text to type into the element',
-      },
+      selector: z.string().describe('CSS selector of the input element'),
+      text: z.string().describe('Text to type into the element'),
     },
     async (args) => {
       await browserManager.type(args.selector, args.text);
@@ -115,10 +100,7 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     'browser_evaluate',
     'Execute JavaScript in the page context and return the result',
     {
-      script: {
-        type: 'string',
-        description: 'JavaScript code to execute in the page context',
-      },
+      script: z.string().describe('JavaScript code to execute in the page context'),
     },
     async (args) => {
       const result = await browserManager.evaluate(args.script);
@@ -210,14 +192,8 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     'browser_wait_for',
     'Wait for an element matching the CSS selector to appear on the page',
     {
-      selector: {
-        type: 'string',
-        description: 'CSS selector of the element to wait for',
-      },
-      timeout: {
-        type: 'number',
-        description: 'Maximum time to wait in milliseconds (default: 30000)',
-      },
+      selector: z.string().describe('CSS selector of the element to wait for'),
+      timeout: z.number().optional().describe('Maximum time to wait in milliseconds (default: 30000)'),
     },
     async (args) => {
       await browserManager.waitForSelector(args.selector, args.timeout ?? 30000);

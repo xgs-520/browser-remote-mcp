@@ -18,7 +18,7 @@ const app = express();
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-api-key', 'Mcp-Session-Id', 'Last-Event-ID'],
+  allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'Mcp-Session-Id', 'Last-Event-ID'],
   exposedHeaders: ['Mcp-Session-Id'],
 }));
 
@@ -26,12 +26,23 @@ app.use(cors({
 app.use(express.json());
 
 // API Key authentication middleware
+// Accepts key via x-api-key header OR Authorization: Bearer <key> header
+// The Bearer fallback ensures compatibility with reverse proxies / tunnels
+// that strip custom headers (e.g. DevBridge).
 app.use((req, res, next) => {
   // Skip auth for health check
   if (req.path === '/healthz') {
     return next();
   }
-  const providedKey = req.headers['x-api-key'] as string;
+  // Try x-api-key header first
+  let providedKey = req.headers['x-api-key'] as string | undefined;
+  // Fallback: Authorization: Bearer <key>
+  if (!providedKey) {
+    const authHeader = req.headers['authorization'] as string | undefined;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      providedKey = authHeader.slice(7);
+    }
+  }
   if (providedKey !== API_KEY) {
     return res.status(401).json({ error: 'Unauthorized: invalid or missing API key' });
   }
@@ -147,6 +158,7 @@ async function main() {
     console.log(`   HTTPS endpoint: https://localhost:${PORT}/mcp`);
     console.log(`   Health check:   https://localhost:${PORT}/healthz`);
     console.log(`   API Key header: x-api-key: ${API_KEY.substring(0, 8)}...`);
+    console.log(`   Alt auth:       Authorization: Bearer <key>`);
     console.log(`\n   Available tools:`);
     console.log(`   - browser_navigate:  Open a URL`);
     console.log(`   - browser_screenshot: Capture page screenshot`);
