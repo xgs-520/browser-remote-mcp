@@ -142,19 +142,28 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     }
   );
 
-  // Tool: browser_get_html - Get page HTML
+  // Tool: browser_get_html - Get page HTML (cleaned)
   server.tool(
     'browser_get_html',
-    'Get the full HTML of the current page. Use maxLength to truncate large pages.',
+    'Get the HTML of the current page with style/script/comments stripped. Default max 30000 chars.',
     {
-      maxLength: z.number().optional().describe('Max characters to return (default: no limit). Truncates with a note if exceeded.'),
+      maxLength: z.number().optional().describe('Max characters to return (default: 30000). Set 0 for no limit.'),
     },
     async (args) => {
-      const html = await browserManager.getHtml();
-      const max = args.maxLength ?? 0;
+      let html = await browserManager.getHtml();
+
+      // 1. Strip <style>...</style>
+      html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+      // 2. Strip <script>...</script>
+      html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+      // 3. Strip HTML comments
+      html = html.replace(/<!--[\s\S]*?-->/g, '');
+
+      // 4. Truncate if over limit
+      const max = args.maxLength ?? 30000;
       let text: string;
       if (max > 0 && html.length > max) {
-        text = html.substring(0, max) + `\n\n<!-- truncated: ${html.length - max} chars omitted (total ${html.length}). Set maxLength=0 or omit for full HTML. -->`;
+        text = html.substring(0, max) + '\n\n[truncated: ' + (html.length - max) + ' chars omitted, total ' + html.length + ']';
       } else {
         text = html;
       }
