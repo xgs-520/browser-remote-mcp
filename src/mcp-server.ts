@@ -42,11 +42,12 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     async (args) => {
       const base64 = await browserManager.screenshot(args.fullPage ?? false);
       const sizeKB = Math.round(base64.length * 3 / 4 / 1024);
+      const scope = args.fullPage ? 'full page' : 'viewport';
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Screenshot captured: ${sizeKB}KB base64 PNG (${args.fullPage ? 'full page' : 'viewport'}). Image data included in next content block.`,
+            text: `Screenshot (${sizeKB}KB, ${scope} PNG):\n\n![screenshot](data:image/png;base64,${base64})`,
           },
           {
             type: 'image' as const,
@@ -144,15 +145,24 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
   // Tool: browser_get_html - Get page HTML
   server.tool(
     'browser_get_html',
-    'Get the full HTML of the current page',
-    {},
-    async () => {
+    'Get the full HTML of the current page. Use maxLength to truncate large pages.',
+    {
+      maxLength: z.number().optional().describe('Max characters to return (default: no limit). Truncates with a note if exceeded.'),
+    },
+    async (args) => {
       const html = await browserManager.getHtml();
+      const max = args.maxLength ?? 0;
+      let text: string;
+      if (max > 0 && html.length > max) {
+        text = html.substring(0, max) + `\n\n<!-- truncated: ${html.length - max} chars omitted (total ${html.length}). Set maxLength=0 or omit for full HTML. -->`;
+      } else {
+        text = html;
+      }
       return {
         content: [
           {
             type: 'text' as const,
-            text: html,
+            text,
           },
         ],
       };
