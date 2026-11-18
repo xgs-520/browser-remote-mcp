@@ -41,8 +41,13 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
     },
     async (args) => {
       const base64 = await browserManager.screenshot(args.fullPage ?? false);
+      const sizeKB = Math.round(base64.length * 3 / 4 / 1024);
       return {
         content: [
+          {
+            type: 'text' as const,
+            text: `Screenshot captured: ${sizeKB}KB base64 PNG (${args.fullPage ? 'full page' : 'viewport'}). Image data included in next content block.`,
+          },
           {
             type: 'image' as const,
             data: base64,
@@ -56,7 +61,7 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
   // Tool: browser_click - Click an element (multi-strategy)
   server.tool(
     'browser_click',
-    'Click an element by CSS selector. Uses multi-strategy: native Playwright click → force click → JS click. force=true skips the native strategy. Returns which strategy succeeded.',
+    'Click an element by CSS selector. Uses multi-strategy: native Playwright click -> force click -> JS click. force=true skips the native strategy. Returns which strategy succeeded.',
     {
       selector: z.string().describe('CSS selector of the element to click'),
       force: z.boolean().optional().describe('If true, skip native click and go straight to force/JS strategies (default: false)'),
@@ -78,7 +83,7 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
   // Tool: browser_type - Type text into an input
   server.tool(
     'browser_type',
-    'Type text into an input element by CSS selector. Uses multi-strategy: native fill → force fill → JS value set. force=true skips native strategy.',
+    'Type text into an input element by CSS selector. Uses multi-strategy: native fill -> force fill -> JS value set. force=true skips native strategy.',
     {
       selector: z.string().describe('CSS selector of the input element'),
       text: z.string().describe('Text to type into the element'),
