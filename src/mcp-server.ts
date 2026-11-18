@@ -54,11 +54,14 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
       const filepath = join(shotsDir, filename);
       writeFileSync(filepath, Buffer.from(base64, 'base64'));
 
+      const baseUrl = process.env.SHOTS_BASE_URL || '';
+      const url = baseUrl ? `${baseUrl}/shots/${filename}` : `/shots/${filename}`;
+
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Screenshot saved: ${filename}\nSize: ${sizeKB}KB, ${scope}\nPath: /shots/${filename}`,
+            text: `Screenshot saved: ${filename}\nSize: ${sizeKB}KB, ${scope}\nURL: ${url}`,
           },
           {
             type: 'image' as const,
