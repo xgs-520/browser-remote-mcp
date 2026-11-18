@@ -25,6 +25,16 @@ const server = http.createServer((req, res) => {
   req.on('end', () => {
     const body = Buffer.concat(chunks);
 
+    // Log incoming MCP requests
+    if (body.length > 0) {
+      try {
+        const parsed = JSON.parse(body.toString());
+        if (parsed.method === 'tools/call') {
+          console.log(`[${new Date().toISOString()}] tools/call: ${parsed.params?.name} args=${JSON.stringify(parsed.params?.arguments)}`);
+        }
+      } catch {}
+    }
+
     const proxyReq = https.request(
       {
         hostname: 'localhost',
@@ -35,10 +45,23 @@ const server = http.createServer((req, res) => {
         rejectUnauthorized: false,
       },
       (proxyRes) => {
+        // Log response status
+        console.log(`[${new Date().toISOString()}] backend responded: ${proxyRes.statusCode}`);
+
         res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
         proxyRes.pipe(res);
       }
     );
+
+    // 30s timeout — if backend doesn't respond, return 504
+    proxyReq.setTimeout(30000, () => {
+      console.error(`[${new Date().toISOString()}] backend timeout (30s)`);
+      if (!res.headersSent) {
+        res.writeHead(504, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Gateway timeout', message: 'Backend did not respond within 30s' }));
+      }
+      proxyReq.destroy();
+    });
 
     proxyReq.on('error', (err) => {
       console.error('Proxy error:', err.message);
