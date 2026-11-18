@@ -9,13 +9,44 @@
 set -e
 cd "$(dirname "$0")"
 
+echo "=== 0. 检查 Playwright Chromium 内核 ==="
+CHROMIUM_BIN=""
+for dir in /root/.cache/ms-playwright/chromium-*; do
+  if [ -f "$dir/chrome-headless-shell-linux-arm64/chrome-headless-shell" ]; then
+    CHROMIUM_BIN="$dir/chrome-headless-shell-linux-arm64/chrome-headless-shell"
+    break
+  fi
+  if [ -f "$dir/chrome-linux/chrome" ]; then
+    CHROMIUM_BIN="$dir/chrome-linux/chrome"
+    break
+  fi
+done
+
+if [ -n "$CHROMIUM_BIN" ]; then
+  echo "   ✅ Chromium 已安装: $CHROMIUM_BIN"
+else
+  echo "   ⚠️ Chromium 未安装，开始安装..."
+  # 安装系统依赖（openEuler）
+  dnf install -y nss nspr atk at-spi2-atk cups-libs libdrm \
+    libXcomposite libXdamage libXrandr mesa-libgbm pango \
+    alsa-lib gtk3 libXtst 2>/dev/null || true
+  # 安装 Chromium 内核
+  npx playwright install chromium 2>&1 || {
+    echo "   ❌ Chromium 安装失败，浏览器工具将不可用"
+    echo "   手动重试: npx playwright install chromium"
+  }
+  echo "   ✅ Chromium 安装完成"
+fi
+
+echo ""
 echo "=== 1. 检查 MCP 服务 (端口 9443) ==="
 if ss -tlnp | grep -q ":9443 "; then
   echo "   ✅ MCP 服务已在运行"
 else
-  echo "   ⚠️ MCP 服务未运行"
-  echo "   注意：沙箱中的服务由 CodeArts 管理，通常不需要手动启动"
-  echo "   如果服务挂了，在 CodeArts 终端中运行: cd browser-remote-mcp && npm start"
+  echo "   启动 MCP 服务..."
+  nohup node dist/index.js > /tmp/mcp-server.log 2>&1 &
+  echo "   ✅ MCP 服务已启动 (PID: $!)"
+  sleep 3
 fi
 
 echo ""
