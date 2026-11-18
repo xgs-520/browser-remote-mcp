@@ -49,7 +49,7 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
       // Save to file for HTTP access via proxy /shots/ endpoint
       const shotsDir = join(process.cwd(), 'shots');
       try { mkdirSync(shotsDir, { recursive: true }); } catch {}
-      const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+      const ts = Date.now().toString();
       const filename = `shot_${ts}.png`;
       const filepath = join(shotsDir, filename);
       writeFileSync(filepath, Buffer.from(base64, 'base64'));
