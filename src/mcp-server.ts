@@ -2,6 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { BrowserManager } from './browser-manager.js';
 import { z } from 'zod';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 /**
  * Create and configure the MCP server with all browser tools.
@@ -43,11 +45,20 @@ export function createMcpServer(browserManager: BrowserManager): McpServer {
       const base64 = await browserManager.screenshot(args.fullPage ?? false);
       const sizeKB = Math.round(base64.length * 3 / 4 / 1024);
       const scope = args.fullPage ? 'full page' : 'viewport';
+
+      // Save to file for HTTP access via proxy /shots/ endpoint
+      const shotsDir = join(process.cwd(), 'shots');
+      try { mkdirSync(shotsDir, { recursive: true }); } catch {}
+      const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+      const filename = `shot_${ts}.png`;
+      const filepath = join(shotsDir, filename);
+      writeFileSync(filepath, Buffer.from(base64, 'base64'));
+
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Screenshot (${sizeKB}KB, ${scope} PNG):\n\n![screenshot](data:image/png;base64,${base64})`,
+            text: `Screenshot saved: ${filename}\nSize: ${sizeKB}KB, ${scope}\nPath: /shots/${filename}`,
           },
           {
             type: 'image' as const,

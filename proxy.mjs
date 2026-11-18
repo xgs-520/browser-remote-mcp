@@ -1,13 +1,65 @@
 // Lightweight reverse proxy: injects x-api-key header for tunnel access
 // Tunnel → this proxy (port 9446) → sandbox MCP service (port 9443)
+// Also serves /shots/* as static files for screenshot access
 import https from 'node:https';
 import http from 'node:http';
+import { readFileSync, existsSync } from 'fs';
+import { join, extname, normalize } from 'path';
 
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '9446', 10);
 const BACKEND_PORT = parseInt(process.env.BACKEND_PORT || '9443', 10);
 const API_KEY = process.env.MCP_API_KEY || 'changeme';
+const SHOTS_DIR = join(process.cwd(), 'shots');
+
+const MIME = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+};
 
 const server = http.createServer((req, res) => {
+  // Serve /shots/* as static files
+  if (req.url?.startsWith('/shots/')) {
+    const reqPath = normalize(decodeURIComponent(req.url));
+    const filePath = join(process.cwd(), reqPath);
+
+    // Prevent path traversal
+    if (!filePath.startsWith(SHOTS_DIR)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return;
+    }
+
+    if ((req.method === 'GET' || req.method === 'HEAD') && existsSync(filePath) && !filePath.endsWith('/')) {
+      try {
+        const data = readFileSync(filePath);
+        const mime = MIME[extname(filePath)] || 'application/octet-stream';
+        res.writeHead(200, {
+          'Content-Type': mime,
+          'Content-Length': data.length,
+          'Cache-Control': 'public, max-age=3600',
+        });
+        if (req.method === 'HEAD') {
+          res.end();
+        } else {
+          res.end(data);
+        }
+        console.log(`[${new Date().toISOString()}] served: ${req.url} (${data.length} bytes)`);
+        return;
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Internal error');
+        return;
+      }
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not found');
+    return;
+  }
+
   // Build headers for backend request
   const headers = {};
   for (const [key, val] of Object.entries(req.headers)) {
@@ -81,5 +133,6 @@ const server = http.createServer((req, res) => {
 server.listen(PROXY_PORT, () => {
   console.log(`Auth-injecting proxy running on port ${PROXY_PORT}`);
   console.log(`Forwarding to: https://localhost:${BACKEND_PORT}`);
+  console.log(`Shots dir: ${SHOTS_DIR}`);
   console.log(`Injected API key: ${API_KEY.substring(0, 8)}...`);
 });
