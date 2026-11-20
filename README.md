@@ -12,6 +12,7 @@
 - 🔧 **HTTP/HTTPS 双模式** — 支持 `HTTP_MODE` 环境变量切换
 - 🔄 **CORS 支持** — 允许跨域访问
 - 📦 **postinstall 自动配置** — `npm install` 自动 patch SDK + 安装浏览器内核
+- 🛡️ **Supervisor 守护进程** — 服务崩溃自动重启，隧道自动维护
 
 ## MCP 工具列表
 
@@ -58,7 +59,20 @@ apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
   libgbm1 libpango-1.0-0 libasound2 libgtk-3-0
 ```
 
-### 3. 编译 & 启动
+### 3. 编译 & 启动（推荐：永久守护模式）
+
+```bash
+npm run build
+./start-all.sh    # 一键启动：编译检查 + Supervisor 守护 + 隧道 + 自启
+```
+
+`start-all.sh` 会启动 `supervisor.sh` 守护进程，它会：
+- 持续监控 MCP Server (9443) 和 Proxy (9446)，崩溃自动重启
+- 定期健康检查（每 30 秒）
+- 自动维护 DevBridge 隧道 host 进程
+- 设置 crontab 自启（如可用）
+
+### 手动启动（不使用守护进程）
 
 ```bash
 npm run build
@@ -79,6 +93,26 @@ curl -X POST http://localhost:9443/mcp \
   -H "MCP-Protocol-Version: 2026-07-28" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
 ```
+
+## Supervisor 守护进程
+
+`supervisor.sh` 是永久守护进程，确保服务 7×24 小时运行：
+
+```bash
+./supervisor.sh start    # 后台启动守护（nohup，幂等，重复调用安全）
+./supervisor.sh stop     # 停止守护和所有服务
+./supervisor.sh status   # 查看状态（服务、健康检查、隧道 URL）
+./supervisor.sh run      # 前台运行（调试用）
+```
+
+**自启机制**：
+- `start-all.sh` 会尝试设置 crontab（每 2 分钟检查 supervisor 是否存活）
+- 容器环境无 crontab 时，可手动添加到 `~/.bashrc`：
+  ```bash
+  echo '[ -x /path/to/supervisor.sh ] && /path/to/supervisor.sh start >/dev/null 2>&1 &' >> ~/.bashrc
+  ```
+
+**日志位置**：`/tmp/browser-mcp-supervisor/supervisor.log`
 
 ## 配置
 
@@ -113,6 +147,10 @@ browser-remote-mcp/
 │   └── cert.ts             # 自签名证书生成
 ├── scripts/
 │   └── postinstall.sh      # 自动 patch SDK + 安装浏览器内核
+├── supervisor.sh           # 永久守护进程（监控 + 自动重启 + 隧道维护）
+├── start-all.sh            # 一键启动（编译 + 守护 + 隧道 + 自启）
+├── tunnel-manage.sh        # DevBridge 隧道管理
+├── proxy.mjs               # 认证注入代理（端口 9446 → 9443）
 ├── package.json
 ├── tsconfig.json
 └── README.md
