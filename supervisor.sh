@@ -19,7 +19,7 @@ cd "$(dirname "$0")"
 # ===== 配置 =====
 MCP_PORT=9443
 PROXY_PORT=9446
-TUNNEL_ID="a36r3afl"
+TUNNEL_ID="3v6pc5ws"
 CHECK_INTERVAL=30          # 每 30 秒检查一次
 HEALTH_FAIL_THRESHOLD=3    # 连续 3 次健康检查失败才重启
 LOG_DIR="/tmp/browser-mcp-supervisor"

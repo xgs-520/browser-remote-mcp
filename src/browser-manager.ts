@@ -55,6 +55,22 @@ export class BrowserManager {
    * Navigate to a URL.
    */
   async navigate(url: string): Promise<{ title: string; url: string }> {
+    // Security: block navigation to private/internal IP ranges (SSRF protection)
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname;
+    const isPrivate =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('169.254.') ||
+      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname) ||
+      /^0\./.test(hostname);
+    if (isPrivate) {
+      throw new Error(`Blocked: navigation to private/internal address ${hostname} is not allowed`);
+    }
+
     await this.ensureBrowser();
     const page = this.getCurrentPage();
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });

@@ -2,7 +2,6 @@ import https from 'node:https';
 import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
-import cors from 'cors';
 import { getOrCreateCertificate, Certificate } from './cert.js';
 import { BrowserManager } from './browser-manager.js';
 import { createMcpServer, createTransport } from './mcp-server.js';
@@ -13,19 +12,30 @@ const USE_HTTP = process.env.HTTP_MODE === 'true';
 
 const app = express();
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 'Accept',
-    'Mcp-Session-Id', 'Last-Event-ID',
-    'MCP-Protocol-Version', 'Mcp-Method', 'Mcp-Name',
-  ],
-  exposedHeaders: ['Mcp-Session-Id'],
-}));
+// CORS disabled for security — MCP clients connect directly, no cross-origin needed
+app.options('/mcp', (req, res) => {
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Mcp-Session-Id, Last-Event-ID, MCP-Protocol-Version, Mcp-Method, Mcp-Name, X-Api-Key');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.status(204).end();
+});
 
 // Parse JSON body — pass req.body to transport.handleRequest as 3rd arg
 app.use(express.json());
+
+// API Key authentication — rejects requests to /mcp without valid key
+const API_KEY = process.env.MCP_API_KEY;
+if (!API_KEY) {
+  console.error('⚠️  WARNING: MCP_API_KEY not set, running WITHOUT authentication!');
+}
+app.use('/mcp', (req, res, next) => {
+  if (!API_KEY) { return next(); } // no key configured = open mode (with warning)
+  const key = req.headers['x-api-key'] as string;
+  const urlKey = new URL(req.url, 'http://localhost').searchParams.get('key');
+  if (key === API_KEY || urlKey === API_KEY) {
+    return next();
+  }
+  res.status(401).json({ error: 'Unauthorized' });
+});
 
 app.get('/healthz', (req, res) => {
   res.json({ status: 'ok', service: 'browser-remote-mcp', version: '1.0.0' });
@@ -81,9 +91,9 @@ app.get('/', (req, res) => {
   res.json({
     service: 'browser-remote-mcp',
     version: '1.0.0',
-    description: 'Browser Remote Access MCP Server (no auth, MCP 2026-07-28)',
+    description: 'Browser Remote Access MCP Server (API Key auth, MCP 2026-07-28)',
     endpoints: { health: '/healthz', mcp: '/mcp' },
-    auth: 'none',
+    auth: API_KEY ? 'api-key' : 'none',
     protocolVersion: '2026-07-28',
   });
 });
@@ -99,7 +109,7 @@ process.on('SIGTERM', async () => {
 
 async function main() {
   console.log(`Starting Browser Remote MCP Server...`);
-  console.log(`Port: ${PORT}, Mode: ${USE_HTTP ? 'HTTP' : 'HTTPS'}, Auth: None`);
+  console.log(`Port: ${PORT}, Mode: ${USE_HTTP ? 'HTTP' : 'HTTPS'}, Auth: ${API_KEY ? 'API-Key' : 'None(⚠️)'}`);
 
   if (USE_HTTP) {
     http.createServer(app).listen(PORT, () => {

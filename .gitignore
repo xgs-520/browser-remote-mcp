@@ -5,3 +5,5 @@ certs/
 *.log
 .DS_Store
 .env
+.api-key
+shots/

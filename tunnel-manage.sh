@@ -14,7 +14,7 @@
 set -e
 
 # ===== 配置 =====
-TUNNEL_ID="a36r3afl"
+TUNNEL_ID="3v6pc5ws"
 TUNNEL_NAME="browser-mcp-tunnel"
 TUNNEL_DESC="浏览器MCP隧道"
 TUNNEL_EXPIRE=720          # 720 小时 = 30 天（最大值）
